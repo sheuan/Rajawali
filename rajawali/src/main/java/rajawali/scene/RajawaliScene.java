@@ -12,6 +12,9 @@
  */
 package rajawali.scene;
 
+import android.graphics.Color;
+import android.opengl.GLES20;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -48,8 +51,6 @@ import rajawali.scenegraph.IGraphNodeMember;
 import rajawali.scenegraph.Octree;
 import rajawali.util.ObjectColorPicker;
 import rajawali.util.ObjectColorPicker.ColorPickerInfo;
-import android.graphics.Color;
-import android.opengl.GLES20;
 
 /**
  * This is the container class for scenes in Rajawali.
@@ -72,7 +73,9 @@ public class RajawaliScene extends AFrameTask {
 	protected Matrix4 mPMatrix = new Matrix4();
 	protected Matrix4 mVPMatrix = new Matrix4();
 	protected Matrix4 mInvVPMatrix = new Matrix4();
-	
+
+    protected int mViewportWidth; // Local tracking of viewport width dimension, allowing less than full size
+    protected int mViewportHeight; // Local tracking of viewport height dimension, allowing less than full size
 	protected float mRed, mBlue, mGreen, mAlpha;
 	protected Cube mSkybox;
 	protected FogParams mFogParams;
@@ -142,6 +145,10 @@ public class RajawaliScene extends AFrameTask {
 		mCameras = Collections.synchronizedList(new CopyOnWriteArrayList<Camera>());
 		mLights = Collections.synchronizedList(new CopyOnWriteArrayList<ALight>());
 		mFrameTaskQueue = new LinkedList<AFrameTask>();
+
+        // Set the to invalid initially
+        mViewportHeight = -1;
+        mViewportWidth = -1;
 		
 		mCamera = new Camera();
 		mCamera.setZ(mEyeZ);
@@ -721,7 +728,7 @@ public class RajawaliScene extends AFrameTask {
 			//Check if we need to switch the camera, and if so, do it.
 			if (mNextCamera != null) {
 				mCamera = mNextCamera;
-                mCamera.setProjectionMatrix(mRenderer.getViewportWidth(), mRenderer.getViewportHeight());
+                updateProjectionMatrix();
 				mNextCamera = null;
 			}
 		}
@@ -1877,8 +1884,29 @@ public class RajawaliScene extends AFrameTask {
 	 * @param height in the new viewport height in pixes.
 	 */
 	public void updateProjectionMatrix(int width, int height) {
+        if (width < 0 || height < 0) throw new IllegalArgumentException("Viewport dimensions must not be negative.");
 		mCamera.setProjectionMatrix(width, height);
 	}
+
+    public void updateProjectionMatrix() {
+        if (mViewportWidth < 0 || mViewportHeight < 0) {
+            mCamera.setProjectionMatrix(mRenderer.getViewportWidth(), mRenderer.getViewportHeight());
+        } else {
+            mCamera.setProjectionMatrix(mViewportWidth, mViewportHeight);
+        }
+    }
+
+    public void setSceneDimensions(int width, int height) {
+        mViewportWidth = width;
+        mViewportHeight = height;
+        updateProjectionMatrix(width, height);
+    }
+
+    public void resetSceneDimensionsToViewport() {
+        mViewportWidth = -1;
+        mViewportHeight = -1;
+        mCamera.setProjectionMatrix(mRenderer.getViewportWidth(), mRenderer.getViewportHeight());
+    }
 	
 	public void setUsesCoverageAa(boolean value) {
 		mUsesCoverageAa = value;
